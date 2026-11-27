@@ -39,6 +39,7 @@ const els = {
   statAverage: document.getElementById('statAverage'),
   statDepts: document.getElementById('statDepts'),
   statNewest: document.getElementById('statNewest'),
+  storageMode: document.getElementById('storageMode'),
   deptChart: document.getElementById('deptChart'),
   deleteModal: document.getElementById('deleteModal'),
   deleteText: document.getElementById('deleteText'),
@@ -467,10 +468,19 @@ async function loadDepartments() {
   }
 }
 
+async function loadStatus() {
+  try {
+    const status = await api('/api/status');
+    els.storageMode.textContent = status.storage === 'mongo' ? 'MongoDB' : 'JSON';
+  } catch (err) {
+    els.storageMode.textContent = '—';
+  }
+}
+
 async function refresh() {
   await loadDepartments();
   await loadAttendance();
-  await Promise.all([loadStats(), loadEmployees()]);
+  await Promise.all([loadStats(), loadEmployees(), loadStatus()]);
 }
 
 function showView(view) {
