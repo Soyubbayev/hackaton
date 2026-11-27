@@ -3,19 +3,171 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Haketon - Vazifalar</title>
+  <title>Xodimlar boshqaruvi</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <main class="app">
-    <h1>Vazifalar</h1>
-    <form id="form" class="form">
-      <input id="input" type="text" placeholder="Yangi vazifa..." autocomplete="off" />
-      <button type="submit">Qo'shish</button>
-    </form>
-    <ul id="list" class="list"></ul>
-    <p id="empty" class="empty" hidden>Hozircha vazifa yo'q</p>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <span class="brand-icon">HR</span>
+        <div class="brand-text">
+          <h1>Xodimlar boshqaruvi</h1>
+          <p>Kadrlar bo'limi paneli</p>
+        </div>
+      </div>
+      <button id="addBtn" class="btn btn-primary" type="button">
+        <span class="plus">+</span> Yangi xodim
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="stats">
+      <article class="stat-card">
+        <span class="stat-label">Jami xodim</span>
+        <strong class="stat-value" id="statTotal">0</strong>
+      </article>
+      <article class="stat-card stat-active">
+        <span class="stat-label">Faol</span>
+        <strong class="stat-value" id="statActive">0</strong>
+      </article>
+      <article class="stat-card stat-inactive">
+        <span class="stat-label">Nofaol</span>
+        <strong class="stat-value" id="statInactive">0</strong>
+      </article>
+      <article class="stat-card stat-depts">
+        <span class="stat-label">Bo'limlar</span>
+        <strong class="stat-value" id="statDepts">0</strong>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <input id="search" class="search" type="search" placeholder="Ism, email, lavozim bo'yicha qidirish..." autocomplete="off" />
+        <select id="filterDepartment" class="select" aria-label="Bo'lim">
+          <option value="">Barcha bo'limlar</option>
+        </select>
+        <select id="filterStatus" class="select" aria-label="Holat">
+          <option value="">Barcha holatlar</option>
+          <option value="active">Faol</option>
+          <option value="inactive">Nofaol</option>
+        </select>
+        <select id="sortBy" class="select" aria-label="Saralash">
+          <option value="id:asc">Standart</option>
+          <option value="firstName:asc">Ism (A-Z)</option>
+          <option value="firstName:desc">Ism (Z-A)</option>
+          <option value="salary:desc">Maosh (yuqori)</option>
+          <option value="salary:asc">Maosh (past)</option>
+          <option value="hireDate:desc">Yangi ishga kirgan</option>
+          <option value="hireDate:asc">Eski ishga kirgan</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Xodim</th>
+              <th>Lavozim</th>
+              <th>Bo'lim</th>
+              <th>Aloqa</th>
+              <th>Maosh</th>
+              <th>Ishga kirgan</th>
+              <th>Holat</th>
+              <th class="actions-col">Amallar</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="empty" class="empty" hidden>
+          <p>Xodimlar topilmadi</p>
+          <span>Qidiruvni o'zgartiring yoki yangi xodim qo'shing.</span>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-overlay" data-close></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <h2 id="modalTitle">Yangi xodim</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Yopish">&times;</button>
+      </div>
+
+      <form id="employeeForm" class="modal-form" novalidate>
+        <input type="hidden" id="employeeId" />
+
+        <div class="form-grid">
+          <label class="field">
+            <span>Ism <b>*</b></span>
+            <input id="firstName" type="text" autocomplete="off" />
+            <small class="error" data-error="firstName"></small>
+          </label>
+
+          <label class="field">
+            <span>Familiya <b>*</b></span>
+            <input id="lastName" type="text" autocomplete="off" />
+            <small class="error" data-error="lastName"></small>
+          </label>
+
+          <label class="field">
+            <span>Email <b>*</b></span>
+            <input id="email" type="email" autocomplete="off" />
+            <small class="error" data-error="email"></small>
+          </label>
+
+          <label class="field">
+            <span>Telefon</span>
+            <input id="phone" type="text" placeholder="+998 90 123 45 67" autocomplete="off" />
+            <small class="error" data-error="phone"></small>
+          </label>
+
+          <label class="field">
+            <span>Lavozim <b>*</b></span>
+            <input id="position" type="text" autocomplete="off" />
+            <small class="error" data-error="position"></small>
+          </label>
+
+          <label class="field">
+            <span>Bo'lim <b>*</b></span>
+            <input id="department" type="text" list="departmentList" autocomplete="off" />
+            <datalist id="departmentList"></datalist>
+            <small class="error" data-error="department"></small>
+          </label>
+
+          <label class="field">
+            <span>Maosh (so'm)</span>
+            <input id="salary" type="number" min="0" step="1000" />
+            <small class="error" data-error="salary"></small>
+          </label>
+
+          <label class="field">
+            <span>Ishga kirgan sana</span>
+            <input id="hireDate" type="date" />
+            <small class="error" data-error="hireDate"></small>
+          </label>
+
+          <label class="field">
+            <span>Holat</span>
+            <select id="status">
+              <option value="active">Faol</option>
+              <option value="inactive">Nofaol</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close>Bekor qilish</button>
+          <button type="submit" class="btn btn-primary" id="saveBtn">Saqlash</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
   <script src="/app.js"></script>
 </body>
 </html>

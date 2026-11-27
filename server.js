@@ -4,6 +4,12 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'employees.json');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STATUSES = ['active', 'inactive'];
+const SORTABLE = ['id', 'firstName', 'lastName', 'email', 'position', 'department', 'salary', 'hireDate', 'status'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -16,8 +22,24 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
-let todos = [{ id: 1, text: 'Loyihani GitHubga yuklash', done: false }];
-let nextId = 2;
+let employees = [];
+let nextId = 1;
+
+function loadData() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
+  try {
+    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    employees = Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    employees = [];
+  }
+  nextId = employees.reduce((max, e) => Math.max(max, Number(e.id) || 0), 0) + 1;
+}
+
+function saveData() {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(employees, null, 2));
+}
 
 function sendJson(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -35,11 +57,90 @@ function readBody(req) {
       try {
         resolve(data ? JSON.parse(data) : {});
       } catch (err) {
-        reject(err);
+        reject(new Error('INVALID_JSON'));
       }
     });
     req.on('error', reject);
   });
+}
+
+function validateEmployee(body, ignoreId = null) {
+  const errors = {};
+  const firstName = String(body.firstName ?? '').trim();
+  const lastName = String(body.lastName ?? '').trim();
+  const email = String(body.email ?? '').trim().toLowerCase();
+  const phone = String(body.phone ?? '').trim();
+  const position = String(body.position ?? '').trim();
+  const department = String(body.department ?? '').trim();
+  const status = STATUSES.includes(body.status) ? body.status : 'active';
+
+  if (!firstName) errors.firstName = 'Ism kiritilishi shart';
+  else if (firstName.length > 60) errors.firstName = 'Ism juda uzun';
+
+  if (!lastName) errors.lastName = 'Familiya kiritilishi shart';
+  else if (lastName.length > 60) errors.lastName = 'Familiya juda uzun';
+
+  if (!email) errors.email = 'Email kiritilishi shart';
+  else if (!EMAIL_RE.test(email)) errors.email = 'Email formati noto`g`ri';
+  else if (employees.some((e) => e.email.toLowerCase() === email && e.id !== ignoreId)) {
+    errors.email = 'Bu email allaqachon mavjud';
+  }
+
+  if (!position) errors.position = 'Lavozim kiritilishi shart';
+  if (!department) errors.department = 'Bo`lim kiritilishi shart';
+
+  let salary = 0;
+  if (body.salary !== undefined && body.salary !== null && body.salary !== '') {
+    const num = Number(body.salary);
+    if (!Number.isFinite(num) || num < 0) errors.salary = 'Maosh noto`g`ri';
+    else salary = Math.round(num);
+  }
+
+  let hireDate = '';
+  if (body.hireDate) {
+    const value = String(body.hireDate).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
+      errors.hireDate = 'Sana YYYY-MM-DD formatida bo`lishi kerak';
+    } else {
+      hireDate = value;
+    }
+  }
+
+  if (Object.keys(errors).length) return { errors };
+
+  return {
+    data: { firstName, lastName, email, phone, position, department, salary, hireDate, status },
+  };
+}
+
+function listEmployees(params) {
+  let list = employees.slice();
+
+  const search = (params.get('search') || '').trim().toLowerCase();
+  if (search) {
+    list = list.filter((e) => {
+      const haystack = `${e.firstName} ${e.lastName} ${e.email} ${e.position} ${e.department}`.toLowerCase();
+      return haystack.includes(search);
+    });
+  }
+
+  const department = params.get('department');
+  if (department) list = list.filter((e) => e.department === department);
+
+  const status = params.get('status');
+  if (status) list = list.filter((e) => e.status === status);
+
+  const sort = SORTABLE.includes(params.get('sort')) ? params.get('sort') : 'id';
+  const order = params.get('order') === 'desc' ? -1 : 1;
+
+  list.sort((a, b) => {
+    if (sort === 'id' || sort === 'salary') {
+      return ((Number(a[sort]) || 0) - (Number(b[sort]) || 0)) * order;
+    }
+    return String(a[sort] ?? '').localeCompare(String(b[sort] ?? ''), 'uz') * order;
+  });
+
+  return list;
 }
 
 function serveStatic(req, res) {
@@ -67,52 +168,90 @@ function serveStatic(req, res) {
 
 const server = http.createServer(async (req, res) => {
   const { method } = req;
-  const url = req.url.split('?')[0];
+  const url = new URL(req.url, 'http://localhost');
+  const pathname = url.pathname;
 
   try {
-    if (url === '/api/todos' && method === 'GET') {
-      return sendJson(res, 200, todos);
+    if (pathname === '/api/employees' && method === 'GET') {
+      return sendJson(res, 200, listEmployees(url.searchParams));
     }
 
-    if (url === '/api/todos' && method === 'POST') {
+    if (pathname === '/api/employees' && method === 'POST') {
       const body = await readBody(req);
-      const text = String(body.text || '').trim();
-      if (!text) return sendJson(res, 400, { error: 'text kerak' });
-      const todo = { id: nextId++, text, done: false };
-      todos.push(todo);
-      return sendJson(res, 201, todo);
+      const { data, errors } = validateEmployee(body);
+      if (errors) return sendJson(res, 400, { errors });
+      const employee = { id: nextId++, ...data };
+      employees.push(employee);
+      saveData();
+      return sendJson(res, 201, employee);
     }
 
-    const match = url.match(/^\/api\/todos\/(\d+)$/);
+    if (pathname === '/api/employees' && method !== 'GET' && method !== 'POST') {
+      return sendJson(res, 405, { error: 'Method not allowed' });
+    }
+
+    if (pathname === '/api/stats' && method === 'GET') {
+      const departments = {};
+      for (const e of employees) {
+        departments[e.department] = (departments[e.department] || 0) + 1;
+      }
+      const total = employees.length;
+      const active = employees.filter((e) => e.status === 'active').length;
+      return sendJson(res, 200, {
+        total,
+        active,
+        inactive: total - active,
+        departments,
+      });
+    }
+
+    if (pathname === '/api/departments' && method === 'GET') {
+      const list = [...new Set(employees.map((e) => e.department).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, 'uz')
+      );
+      return sendJson(res, 200, list);
+    }
+
+    const match = pathname.match(/^\/api\/employees\/(\d+)$/);
     if (match) {
       const id = Number(match[1]);
-      const index = todos.findIndex((t) => t.id === id);
-      if (index === -1) return sendJson(res, 404, { error: 'topilmadi' });
+      const index = employees.findIndex((e) => e.id === id);
+      if (index === -1) return sendJson(res, 404, { error: 'Xodim topilmadi' });
 
-      if (method === 'PATCH' || method === 'PUT') {
+      if (method === 'GET') return sendJson(res, 200, employees[index]);
+
+      if (method === 'PUT' || method === 'PATCH') {
         const body = await readBody(req);
-        if (typeof body.done === 'boolean') todos[index].done = body.done;
-        if (typeof body.text === 'string' && body.text.trim()) {
-          todos[index].text = body.text.trim();
-        }
-        return sendJson(res, 200, todos[index]);
+        const { data, errors } = validateEmployee(body, id);
+        if (errors) return sendJson(res, 400, { errors });
+        employees[index] = { ...employees[index], ...data, id };
+        saveData();
+        return sendJson(res, 200, employees[index]);
       }
 
       if (method === 'DELETE') {
-        todos.splice(index, 1);
-        return sendJson(res, 200, { ok: true });
+        const removed = employees.splice(index, 1)[0];
+        saveData();
+        return sendJson(res, 200, removed);
       }
+
+      return sendJson(res, 405, { error: 'Method not allowed' });
     }
 
-    if (url.startsWith('/api/')) {
-      return sendJson(res, 404, { error: 'endpoint topilmadi' });
+    if (pathname.startsWith('/api/')) {
+      return sendJson(res, 404, { error: 'Endpoint topilmadi' });
     }
 
     return serveStatic(req, res);
   } catch (err) {
-    return sendJson(res, 500, { error: 'server xatosi' });
+    if (err && err.message === 'INVALID_JSON') {
+      return sendJson(res, 400, { error: 'JSON noto`g`ri' });
+    }
+    return sendJson(res, 500, { error: 'Server xatosi' });
   }
 });
+
+loadData();
 
 server.listen(PORT, () => {
   console.log(`Server ishga tushdi: http://localhost:${PORT}`);

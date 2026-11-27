@@ -1,0 +1,98 @@
+[
+  {
+    "id": 1,
+    "firstName": "Aziz",
+    "lastName": "Karimov",
+    "email": "aziz.karimov@example.com",
+    "phone": "+998 90 123 45 67",
+    "position": "Frontend dasturchi",
+    "department": "IT",
+    "salary": 12000000,
+    "hireDate": "2023-03-15",
+    "status": "active"
+  },
+  {
+    "id": 2,
+    "firstName": "Dilnoza",
+    "lastName": "Rahimova",
+    "email": "dilnoza.rahimova@example.com",
+    "phone": "+998 91 234 56 78",
+    "position": "Marketing menejeri",
+    "department": "Marketing",
+    "salary": 9500000,
+    "hireDate": "2022-09-01",
+    "status": "active"
+  },
+  {
+    "id": 3,
+    "firstName": "Jasur",
+    "lastName": "Toshmatov",
+    "email": "jasur.toshmatov@example.com",
+    "phone": "+998 93 345 67 89",
+    "position": "Savdo menejeri",
+    "department": "Savdo",
+    "salary": 10500000,
+    "hireDate": "2021-06-20",
+    "status": "active"
+  },
+  {
+    "id": 4,
+    "firstName": "Malika",
+    "lastName": "Yusupova",
+    "email": "malika.yusupova@example.com",
+    "phone": "+998 94 456 78 90",
+    "position": "HR mutaxassis",
+    "department": "HR",
+    "salary": 8000000,
+    "hireDate": "2024-01-10",
+    "status": "active"
+  },
+  {
+    "id": 5,
+    "firstName": "Bekzod",
+    "lastName": "Sattorov",
+    "email": "bekzod.sattorov@example.com",
+    "phone": "+998 95 567 89 01",
+    "position": "Backend dasturchi",
+    "department": "IT",
+    "salary": 13000000,
+    "hireDate": "2020-11-05",
+    "status": "active"
+  },
+  {
+    "id": 6,
+    "firstName": "Nodira",
+    "lastName": "Ismoilova",
+    "email": "nodira.ismoilova@example.com",
+    "phone": "+998 97 678 90 12",
+    "position": "Buxgalter",
+    "department": "Moliya",
+    "salary": 9000000,
+    "hireDate": "2019-04-18",
+    "status": "inactive"
+  },
+  {
+    "id": 7,
+    "firstName": "Sardor",
+    "lastName": "Aliyev",
+    "email": "sardor.aliyev@example.com",
+    "phone": "+998 99 789 01 23",
+    "position": "Operatsion direktor",
+    "department": "Operatsiyalar",
+    "salary": 18000000,
+    "hireDate": "2018-02-12",
+    "status": "active"
+  },
+  {
+    "id": 8,
+    "firstName": "Zilola",
+    "lastName": "Nazarova",
+    "email": "zilola.nazarova@example.com",
+    "phone": "+998 88 890 12 34",
+    "position": "SMM mutaxassis",
+    "department": "Marketing",
+    "salary": 7500000,
+    "hireDate": "2024-07-22",
+    "status": "inactive"
+  }
+]
