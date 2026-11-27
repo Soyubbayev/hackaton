@@ -1,6 +1,30 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const store = require('./store');
+
+function loadEnv() {
+  const envPath = path.join(__dirname, '.env');
+  if (!fs.existsSync(envPath)) return;
+  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
+loadEnv();
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -25,20 +49,26 @@ const MIME = {
 let employees = [];
 let nextId = 1;
 
-function loadData() {
+async function loadData() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    employees = Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    employees = [];
-  }
-  nextId = employees.reduce((max, e) => Math.max(max, Number(e.id) || 0), 0) + 1;
-}
 
-function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(employees, null, 2));
+  const result = await store.init({
+    uri: process.env.MONGODB_URI,
+    dbName: process.env.MONGODB_DB || 'haketon',
+    collectionName: process.env.MONGODB_COLLECTION || 'employees',
+    file: DATA_FILE,
+  });
+
+  employees = await store.loadAll();
+  nextId = employees.reduce((max, e) => Math.max(max, Number(e.id) || 0), 0) + 1;
+
+  if (result.mode === 'mongo') {
+    console.log(`Ma'lumotlar bazasi: MongoDB (${result.count} ta xodim)`);
+  } else {
+    const suffix = result.error ? ` (MongoDB ulanmadi: ${result.error})` : '';
+    console.log(`Ma'lumotlar bazasi: JSON fayl${suffix}`);
+  }
 }
 
 function sendJson(res, status, data) {
@@ -204,7 +234,7 @@ const server = http.createServer(async (req, res) => {
       if (errors) return sendJson(res, 400, { errors });
       const employee = { id: nextId++, ...data };
       employees.push(employee);
-      saveData();
+      await store.insert(employee);
       return sendJson(res, 201, employee);
     }
 
@@ -266,13 +296,13 @@ const server = http.createServer(async (req, res) => {
         const { data, errors } = validateEmployee(body, id);
         if (errors) return sendJson(res, 400, { errors });
         employees[index] = { ...employees[index], ...data, id };
-        saveData();
+        await store.update(id, employees[index]);
         return sendJson(res, 200, employees[index]);
       }
 
       if (method === 'DELETE') {
         const removed = employees.splice(index, 1)[0];
-        saveData();
+        await store.remove(id);
         return sendJson(res, 200, removed);
       }
 
@@ -292,8 +322,13 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-loadData();
-
-server.listen(PORT, () => {
-  console.log(`Server ishga tushdi: http://localhost:${PORT}`);
-});
+loadData()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server ishga tushdi: http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Server ishga tushmadi:', err);
+    process.exit(1);
+  });
