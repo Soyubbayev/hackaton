@@ -295,6 +295,17 @@ async function handleRequest(req, res) {
       return sendJson(res, 200, list);
     }
 
+    if (pathname === '/api/status' && method === 'GET') {
+      const date = todayStr();
+      const records = await store.loadAttendance(date);
+      return sendJson(res, 200, {
+        storage: store.getMode(),
+        employees: employees.length,
+        attendanceToday: records.length,
+        date,
+      });
+    }
+
     if (pathname === '/api/attendance' && method === 'GET') {
       const date = url.searchParams.get('date') || todayStr();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
