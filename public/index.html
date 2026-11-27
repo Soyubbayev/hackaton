@@ -16,6 +16,10 @@
           <p>Kadrlar bo'limi paneli</p>
         </div>
       </div>
+      <nav class="nav-tabs">
+        <button id="tabEmployees" class="nav-tab active" type="button">Xodimlar</button>
+        <button id="tabAttendance" class="nav-tab" type="button">Davomat</button>
+      </nav>
       <button id="addBtn" class="btn btn-primary" type="button">
         <span class="plus">+</span> Yangi xodim
       </button>
@@ -23,6 +27,7 @@
   </header>
 
   <main class="container">
+    <section id="employeesView">
     <section class="stats">
       <article class="stat-card">
         <span class="stat-label">Jami xodim</span>
@@ -72,7 +77,6 @@
           <option value="active">Faol</option>
           <option value="inactive">Nofaol</option>
         </select>
-        <input id="attendanceDate" class="select date-input" type="date" aria-label="Davomat sanasi" />
         <button id="exportBtn" class="btn btn-ghost" type="button">CSV yuklab olish</button>
       </div>
 
@@ -87,7 +91,6 @@
               <th class="sortable" data-sort="salary">Maosh</th>
               <th class="sortable" data-sort="hireDate">Ishga kirgan</th>
               <th class="sortable" data-sort="status">Holat</th>
-              <th>Davomat</th>
               <th class="actions-col">Amallar</th>
             </tr>
           </thead>
@@ -98,6 +101,43 @@
           <span>Qidiruvni o'zgartiring yoki yangi xodim qo'shing.</span>
         </div>
       </div>
+    </section>
+    </section>
+
+    <section id="attendanceView" hidden>
+      <div class="att-header">
+        <div>
+          <h2>Davomat</h2>
+          <p class="muted">Kunlik davomatni belgilang</p>
+        </div>
+        <input id="attendanceDate" class="select date-input" type="date" aria-label="Davomat sanasi" />
+      </div>
+
+      <section class="stats stats-att">
+        <article class="stat-card stat-active">
+          <span class="stat-label">Keldi</span>
+          <strong class="stat-value" id="attPresent">0</strong>
+        </article>
+        <article class="stat-card stat-inactive">
+          <span class="stat-label">Kelmadi</span>
+          <strong class="stat-value" id="attAbsent">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Belgilanmagan</span>
+          <strong class="stat-value" id="attUnmarked">0</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <input id="attSearch" class="search" type="search" placeholder="Xodimni qidirish..." autocomplete="off" />
+        </div>
+        <div id="attList" class="att-list"></div>
+        <div id="attEmpty" class="empty" hidden>
+          <p>Xodimlar topilmadi</p>
+          <span>Qidiruvni o'zgartiring.</span>
+        </div>
+      </section>
     </section>
   </main>
 

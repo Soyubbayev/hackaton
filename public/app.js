@@ -2,11 +2,21 @@ const els = {
   search: document.getElementById('search'),
   filterDepartment: document.getElementById('filterDepartment'),
   filterStatus: document.getElementById('filterStatus'),
-  attendanceDate: document.getElementById('attendanceDate'),
   exportBtn: document.getElementById('exportBtn'),
   tableBody: document.getElementById('tableBody'),
   empty: document.getElementById('empty'),
   addBtn: document.getElementById('addBtn'),
+  tabEmployees: document.getElementById('tabEmployees'),
+  tabAttendance: document.getElementById('tabAttendance'),
+  employeesView: document.getElementById('employeesView'),
+  attendanceView: document.getElementById('attendanceView'),
+  attendanceDate: document.getElementById('attendanceDate'),
+  attPresent: document.getElementById('attPresent'),
+  attAbsent: document.getElementById('attAbsent'),
+  attUnmarked: document.getElementById('attUnmarked'),
+  attSearch: document.getElementById('attSearch'),
+  attList: document.getElementById('attList'),
+  attEmpty: document.getElementById('attEmpty'),
   modal: document.getElementById('modal'),
   modalTitle: document.getElementById('modalTitle'),
   form: document.getElementById('employeeForm'),
@@ -72,6 +82,8 @@ const state = {
   deleteTarget: null,
   absenceTarget: null,
   attendance: {},
+  employees: [],
+  view: 'employees',
 };
 
 async function api(path, options = {}) {
@@ -149,11 +161,9 @@ function debounce(fn, delay) {
   };
 }
 
-function buildAttendanceCell(emp) {
-  const td = document.createElement('td');
+function buildAttendanceControls(emp) {
   const wrap = document.createElement('div');
   wrap.className = 'attendance';
-
   const record = state.attendance[emp.id];
 
   const presentBtn = document.createElement('button');
@@ -180,8 +190,7 @@ function buildAttendanceCell(emp) {
     wrap.append(reason);
   }
 
-  td.append(wrap);
-  return td;
+  return wrap;
 }
 
 function renderTable(list) {
@@ -246,8 +255,6 @@ function renderTable(list) {
     statusTd.append(badge);
     tr.append(statusTd);
 
-    tr.append(buildAttendanceCell(emp));
-
     const actionsTd = document.createElement('td');
     actionsTd.className = 'actions-col';
     const actions = document.createElement('div');
@@ -273,6 +280,71 @@ function renderTable(list) {
   }
 }
 
+function renderAttendanceView() {
+  const query = (els.attSearch.value || '').trim().toLowerCase();
+  const employees = state.employees.filter((emp) => {
+    if (!query) return true;
+    const haystack = emp.firstName + ' ' + emp.lastName + ' ' + (emp.position || '') + ' ' + (emp.department || '');
+    return haystack.toLowerCase().includes(query);
+  });
+
+  let present = 0;
+  let absent = 0;
+  let unmarked = 0;
+  for (const emp of state.employees) {
+    const record = state.attendance[emp.id];
+    if (record && record.status === 'present') present++;
+    else if (record && record.status === 'absent') absent++;
+    else unmarked++;
+  }
+  els.attPresent.textContent = present;
+  els.attAbsent.textContent = absent;
+  els.attUnmarked.textContent = unmarked;
+
+  els.attList.innerHTML = '';
+  els.attEmpty.hidden = employees.length > 0;
+
+  for (const emp of employees) {
+    const row = document.createElement('div');
+    row.className = 'att-row';
+
+    const person = document.createElement('div');
+    person.className = 'att-person';
+
+    const avatar = document.createElement('span');
+    avatar.className = 'avatar';
+    avatar.textContent = initials(emp.firstName, emp.lastName);
+    avatar.style.background = colorFor(emp.id);
+
+    const info = document.createElement('div');
+    info.className = 'employee-info';
+    const name = document.createElement('span');
+    name.className = 'employee-name';
+    name.textContent = emp.firstName + ' ' + emp.lastName;
+    const meta = document.createElement('span');
+    meta.className = 'employee-email';
+    meta.textContent = (emp.position || '—') + ' \u00b7 ' + (emp.department || '—');
+    info.append(name, meta);
+    person.append(avatar, info);
+
+    const record = state.attendance[emp.id];
+    const badge = document.createElement('span');
+    if (record && record.status === 'present') {
+      badge.className = 'badge active';
+      badge.textContent = 'Keldi';
+    } else if (record && record.status === 'absent') {
+      badge.className = 'badge inactive';
+      badge.textContent = 'Kelmadi';
+    } else {
+      badge.className = 'badge pending';
+      badge.textContent = 'Belgilanmagan';
+    }
+
+    row.append(person, badge, buildAttendanceControls(emp));
+    els.attList.append(row);
+  }
+}
+
 function buildQuery() {
   const params = new URLSearchParams();
   const search = els.search.value.trim();
@@ -286,7 +358,9 @@ function buildQuery() {
 
 async function loadEmployees() {
   const list = await api('/api/employees?' + buildQuery());
+  state.employees = list;
   renderTable(list);
+  renderAttendanceView();
 }
 
 async function loadAttendance() {
@@ -299,7 +373,7 @@ async function loadAttendance() {
 
 async function reloadAttendanceView() {
   await loadAttendance();
-  await loadEmployees();
+  renderAttendanceView();
 }
 
 async function markPresent(emp) {
@@ -397,6 +471,17 @@ async function refresh() {
   await loadDepartments();
   await loadAttendance();
   await Promise.all([loadStats(), loadEmployees()]);
+}
+
+function showView(view) {
+  state.view = view;
+  const isAttendance = view === 'attendance';
+
+  els.employeesView.hidden = isAttendance;
+  els.attendanceView.hidden = !isAttendance;
+  els.tabEmployees.classList.toggle('active', !isAttendance);
+  els.tabAttendance.classList.toggle('active', isAttendance);
+  els.addBtn.hidden = isAttendance;
 }
 
 function updateSortIndicators() {
@@ -565,6 +650,9 @@ function showToast(message, type = 'success') {
 
 els.addBtn.addEventListener('click', () => openModal(null));
 
+els.tabEmployees.addEventListener('click', () => showView('employees'));
+els.tabAttendance.addEventListener('click', () => showView('attendance'));
+
 els.modal.querySelectorAll('[data-close]').forEach((element) => {
   element.addEventListener('click', closeModal);
 });
@@ -583,6 +671,7 @@ els.absenceForm.addEventListener('submit', submitAbsence);
 els.search.addEventListener('input', debounce(loadEmployees, 250));
 els.filterDepartment.addEventListener('change', loadEmployees);
 els.filterStatus.addEventListener('change', loadEmployees);
+els.attSearch.addEventListener('input', debounce(renderAttendanceView, 150));
 els.attendanceDate.addEventListener('change', reloadAttendanceView);
 
 els.exportBtn.addEventListener('click', () => {
@@ -641,4 +730,5 @@ els.form.addEventListener('submit', async (event) => {
 
 els.attendanceDate.value = todayStr();
 updateSortIndicators();
+showView('employees');
 refresh().catch((err) => showToast(err.message, 'error'));
