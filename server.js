@@ -64,10 +64,13 @@ async function loadData() {
   }
 
   const result = await store.init({
-    uri: process.env.MONGODB_URI,
-    dbName: process.env.MONGODB_DB || 'haketon',
-    collectionName: process.env.MONGODB_COLLECTION || 'employees',
-    attendanceCollection: process.env.MONGODB_ATTENDANCE_COLLECTION || 'attendance',
+    uri: process.env.DB_URI || process.env.MONGODB_URI,
+    dbName: process.env.DB_NAME || process.env.MONGODB_DB || 'haketon',
+    collectionName: process.env.DB_COLLECTION || process.env.MONGODB_COLLECTION || 'employees',
+    attendanceCollection:
+      process.env.DB_ATTENDANCE_COLLECTION ||
+      process.env.MONGODB_ATTENDANCE_COLLECTION ||
+      'attendance',
     file: DATA_FILE,
     attendanceFile: ATTENDANCE_FILE,
   });
