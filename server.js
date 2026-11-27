@@ -50,8 +50,12 @@ let employees = [];
 let nextId = 1;
 
 async function loadData() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
+  } catch (err) {
+    // Read-only filesystem (e.g. Vercel serverless) - handled in memory
+  }
 
   const result = await store.init({
     uri: process.env.MONGODB_URI,
@@ -77,6 +81,13 @@ function sendJson(res, status, data) {
 }
 
 function readBody(req) {
+  if (process.env.VERCEL) {
+    try {
+      return Promise.resolve(req.body || {});
+    } catch (err) {
+      return Promise.reject(new Error('INVALID_JSON'));
+    }
+  }
   return new Promise((resolve, reject) => {
     let data = '';
     req.on('data', (chunk) => {
@@ -218,7 +229,7 @@ function serveStatic(req, res) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const { method } = req;
   const url = new URL(req.url, 'http://localhost');
   const pathname = url.pathname;
@@ -320,15 +331,38 @@ const server = http.createServer(async (req, res) => {
     }
     return sendJson(res, 500, { error: 'Server xatosi' });
   }
+}
+
+let initPromise = null;
+
+function ensureInit() {
+  if (!initPromise) initPromise = loadData();
+  return initPromise;
+}
+
+const server = http.createServer((req, res) => {
+  ensureInit()
+    .then(() => handleRequest(req, res))
+    .catch((err) => {
+      console.error('Init xatosi:', err);
+      if (!res.headersSent) sendJson(res, 500, { error: 'Server xatosi' });
+    });
 });
 
-loadData()
-  .then(() => {
-    server.listen(PORT, () => {
-      console.log(`Server ishga tushdi: http://localhost:${PORT}`);
+if (require.main === module) {
+  ensureInit()
+    .then(() => {
+      server.listen(PORT, () => {
+        console.log(`Server ishga tushdi: http://localhost:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error('Server ishga tushmadi:', err);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error('Server ishga tushmadi:', err);
-    process.exit(1);
-  });
+}
+
+module.exports = async function handler(req, res) {
+  await ensureInit();
+  return handleRequest(req, res);
+};

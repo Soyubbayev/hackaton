@@ -6,11 +6,16 @@ let collection = null;
 let client = null;
 let filePath = '';
 let dataDir = '';
+let memory = [];
 
 function ensureFile(seed) {
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, JSON.stringify(seed || [], null, 2));
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(seed || [], null, 2));
+    }
+  } catch (err) {
+    // Read-only filesystem (e.g. Vercel serverless) - keep data in memory
   }
 }
 
@@ -23,8 +28,12 @@ function readFile() {
   }
 }
 
-function writeFile(list) {
-  fs.writeFileSync(filePath, JSON.stringify(list, null, 2));
+function persist() {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(memory, null, 2));
+  } catch (err) {
+    // Read-only filesystem - keep data in memory only
+  }
 }
 
 async function init(options) {
@@ -59,20 +68,19 @@ async function init(options) {
         }
       }
       client = null;
-      mode = 'json';
-      return { mode, count: readFile().length, error: err.message };
     }
   }
 
   mode = 'json';
-  return { mode, count: readFile().length };
+  memory = readFile();
+  return { mode, count: memory.length };
 }
 
 async function loadAll() {
   if (mode === 'mongo') {
     return collection.find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray();
   }
-  return readFile();
+  return memory.slice();
 }
 
 async function insert(employee) {
@@ -80,9 +88,8 @@ async function insert(employee) {
     await collection.insertOne({ ...employee });
     return;
   }
-  const list = readFile();
-  list.push(employee);
-  writeFile(list);
+  memory.push(employee);
+  persist();
 }
 
 async function update(id, employee) {
@@ -90,11 +97,10 @@ async function update(id, employee) {
     await collection.replaceOne({ id }, { ...employee });
     return;
   }
-  const list = readFile();
-  const index = list.findIndex((e) => e.id === id);
+  const index = memory.findIndex((e) => e.id === id);
   if (index !== -1) {
-    list[index] = employee;
-    writeFile(list);
+    memory[index] = employee;
+    persist();
   }
 }
 
@@ -103,8 +109,8 @@ async function remove(id) {
     await collection.deleteOne({ id });
     return;
   }
-  const list = readFile().filter((e) => e.id !== id);
-  writeFile(list);
+  memory = memory.filter((e) => e.id !== id);
+  persist();
 }
 
 function getMode() {
