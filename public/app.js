@@ -2,7 +2,7 @@ const els = {
   search: document.getElementById('search'),
   filterDepartment: document.getElementById('filterDepartment'),
   filterStatus: document.getElementById('filterStatus'),
-  sortBy: document.getElementById('sortBy'),
+  exportBtn: document.getElementById('exportBtn'),
   tableBody: document.getElementById('tableBody'),
   empty: document.getElementById('empty'),
   addBtn: document.getElementById('addBtn'),
@@ -24,7 +24,14 @@ const els = {
   statTotal: document.getElementById('statTotal'),
   statActive: document.getElementById('statActive'),
   statInactive: document.getElementById('statInactive'),
+  statSalary: document.getElementById('statSalary'),
+  statAverage: document.getElementById('statAverage'),
   statDepts: document.getElementById('statDepts'),
+  statNewest: document.getElementById('statNewest'),
+  deptChart: document.getElementById('deptChart'),
+  deleteModal: document.getElementById('deleteModal'),
+  deleteText: document.getElementById('deleteText'),
+  confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
   toast: document.getElementById('toast'),
 };
 
@@ -39,6 +46,25 @@ const ERROR_FIELDS = [
   'hireDate',
   'status',
 ];
+
+const AVATAR_COLORS = [
+  '#2563eb',
+  '#7c3aed',
+  '#db2777',
+  '#ea580c',
+  '#0891b2',
+  '#16a34a',
+  '#9333ea',
+  '#dc2626',
+  '#0d9488',
+  '#b45309',
+];
+
+const state = {
+  sort: 'id',
+  order: 'asc',
+  deleteTarget: null,
+};
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -70,11 +96,30 @@ function formatMoney(value) {
   return Number(value || 0).toLocaleString('uz-UZ').replace(/\u00a0/g, ' ') + " so'm";
 }
 
+function formatMoneyCompact(value) {
+  const n = Number(value) || 0;
+  const trim = (x) => x.toFixed(1).replace(/\.0$/, '');
+  if (n >= 1e9) return trim(n / 1e9) + ' mlrd';
+  if (n >= 1e6) return trim(n / 1e6) + ' mln';
+  if (n >= 1e3) return Math.round(n / 1e3) + ' ming';
+  return String(n);
+}
+
 function formatDate(value) {
   if (!value) return null;
   const parts = String(value).split('-');
   if (parts.length !== 3) return value;
   return parts[2] + '.' + parts[1] + '.' + parts[0];
+}
+
+function initials(first, last) {
+  const a = (first || '').trim().charAt(0);
+  const b = (last || '').trim().charAt(0);
+  return (a + b).toUpperCase() || '?';
+}
+
+function colorFor(id) {
+  return AVATAR_COLORS[Number(id) % AVATAR_COLORS.length];
 }
 
 function cell(text) {
@@ -99,13 +144,26 @@ function renderTable(list) {
     const tr = document.createElement('tr');
 
     const nameTd = document.createElement('td');
+    const cellWrap = document.createElement('div');
+    cellWrap.className = 'employee-cell';
+
+    const avatar = document.createElement('span');
+    avatar.className = 'avatar';
+    avatar.textContent = initials(emp.firstName, emp.lastName);
+    avatar.style.background = colorFor(emp.id);
+
+    const info = document.createElement('div');
+    info.className = 'employee-info';
     const name = document.createElement('span');
     name.className = 'employee-name';
     name.textContent = emp.firstName + ' ' + emp.lastName;
     const email = document.createElement('span');
     email.className = 'employee-email';
     email.textContent = emp.email;
-    nameTd.append(name, email);
+    info.append(name, email);
+
+    cellWrap.append(avatar, info);
+    nameTd.append(cellWrap);
     tr.append(nameTd);
 
     tr.append(cell(emp.position || '—'));
@@ -155,7 +213,7 @@ function renderTable(list) {
     delBtn.type = 'button';
     delBtn.className = 'mini-btn danger';
     delBtn.textContent = "O'chirish";
-    delBtn.addEventListener('click', () => removeEmployee(emp));
+    delBtn.addEventListener('click', () => openDeleteModal(emp));
 
     actions.append(editBtn, delBtn);
     actionsTd.append(actions);
@@ -171,16 +229,52 @@ function buildQuery() {
   if (search) params.set('search', search);
   if (els.filterDepartment.value) params.set('department', els.filterDepartment.value);
   if (els.filterStatus.value) params.set('status', els.filterStatus.value);
-  const parts = els.sortBy.value.split(':');
-  params.set('sort', parts[0]);
-  params.set('order', parts[1] || 'asc');
+  params.set('sort', state.sort);
+  params.set('order', state.order);
   return params.toString();
 }
 
 async function loadEmployees() {
-  const query = buildQuery();
-  const list = await api('/api/employees' + (query ? '?' + query : ''));
+  const list = await api('/api/employees?' + buildQuery());
   renderTable(list);
+}
+
+function renderChart(departments) {
+  const entries = Object.entries(departments).sort((a, b) => b[1] - a[1]);
+  const max = entries.reduce((m, entry) => Math.max(m, entry[1]), 0);
+  els.deptChart.innerHTML = '';
+
+  if (!entries.length) {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = "Ma'lumot yo'q";
+    els.deptChart.append(p);
+    return;
+  }
+
+  for (const [name, count] of entries) {
+    const row = document.createElement('div');
+    row.className = 'chart-row';
+
+    const label = document.createElement('span');
+    label.className = 'chart-label';
+    label.textContent = name;
+    label.title = name;
+
+    const track = document.createElement('div');
+    track.className = 'chart-track';
+    const bar = document.createElement('div');
+    bar.className = 'chart-bar';
+    bar.style.width = (max ? Math.max(8, (count / max) * 100) : 8) + '%';
+    track.append(bar);
+
+    const value = document.createElement('span');
+    value.className = 'chart-value';
+    value.textContent = count;
+
+    row.append(label, track, value);
+    els.deptChart.append(row);
+  }
 }
 
 async function loadStats() {
@@ -188,7 +282,13 @@ async function loadStats() {
   els.statTotal.textContent = stats.total;
   els.statActive.textContent = stats.active;
   els.statInactive.textContent = stats.inactive;
+  els.statSalary.textContent = formatMoneyCompact(stats.totalSalary) + " so'm";
+  els.statAverage.textContent = formatMoneyCompact(stats.averageSalary) + " so'm";
   els.statDepts.textContent = Object.keys(stats.departments).length;
+  els.statNewest.textContent = stats.newestHire
+    ? stats.newestHire.firstName + ' ' + stats.newestHire.lastName
+    : '—';
+  renderChart(stats.departments);
 }
 
 async function loadDepartments() {
@@ -215,6 +315,15 @@ async function loadDepartments() {
 async function refresh() {
   await loadDepartments();
   await Promise.all([loadStats(), loadEmployees()]);
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('th.sortable').forEach((th) => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === state.sort) {
+      th.classList.add(state.order === 'asc' ? 'sorted-asc' : 'sorted-desc');
+    }
+  });
 }
 
 function clearErrors() {
@@ -269,6 +378,38 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 
+function openDeleteModal(emp) {
+  state.deleteTarget = emp;
+  els.deleteText.textContent =
+    '"' + emp.firstName + ' ' + emp.lastName + '" xodimini o\'chirishni tasdiqlaysizmi?';
+  els.deleteModal.hidden = false;
+  document.body.style.overflow = 'hidden';
+  els.confirmDeleteBtn.focus();
+}
+
+function closeDeleteModal() {
+  state.deleteTarget = null;
+  els.deleteModal.hidden = true;
+  if (els.modal.hidden) document.body.style.overflow = '';
+}
+
+async function confirmDelete() {
+  const emp = state.deleteTarget;
+  if (!emp) return;
+
+  els.confirmDeleteBtn.disabled = true;
+  try {
+    await api('/api/employees/' + emp.id, { method: 'DELETE' });
+    closeDeleteModal();
+    showToast("Xodim o'chirildi");
+    await refresh();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    els.confirmDeleteBtn.disabled = false;
+  }
+}
+
 function collectForm() {
   return {
     firstName: els.firstName.value,
@@ -281,19 +422,6 @@ function collectForm() {
     hireDate: els.hireDate.value,
     status: els.status.value,
   };
-}
-
-async function removeEmployee(emp) {
-  const name = emp.firstName + ' ' + emp.lastName;
-  if (!window.confirm('"' + name + '" xodimini o\'chirishni tasdiqlaysizmi?')) return;
-
-  try {
-    await api('/api/employees/' + emp.id, { method: 'DELETE' });
-    showToast("Xodim o'chirildi");
-    await refresh();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
 }
 
 let toastTimer = null;
@@ -318,13 +446,38 @@ els.modal.querySelectorAll('[data-close]').forEach((element) => {
   element.addEventListener('click', closeModal);
 });
 
+els.deleteModal.querySelectorAll('[data-close-delete]').forEach((element) => {
+  element.addEventListener('click', closeDeleteModal);
+});
+
+els.confirmDeleteBtn.addEventListener('click', confirmDelete);
+
 els.search.addEventListener('input', debounce(loadEmployees, 250));
 els.filterDepartment.addEventListener('change', loadEmployees);
 els.filterStatus.addEventListener('change', loadEmployees);
-els.sortBy.addEventListener('change', loadEmployees);
+
+els.exportBtn.addEventListener('click', () => {
+  window.location.href = '/api/employees/export?' + buildQuery();
+});
+
+document.querySelectorAll('th.sortable').forEach((th) => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (state.sort === key) {
+      state.order = state.order === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.sort = key;
+      state.order = key === 'salary' || key === 'hireDate' ? 'desc' : 'asc';
+    }
+    updateSortIndicators();
+    loadEmployees();
+  });
+});
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !els.modal.hidden) closeModal();
+  if (event.key !== 'Escape') return;
+  if (!els.deleteModal.hidden) closeDeleteModal();
+  else if (!els.modal.hidden) closeModal();
 });
 
 els.form.addEventListener('submit', async (event) => {
@@ -356,4 +509,5 @@ els.form.addEventListener('submit', async (event) => {
   }
 });
 
+updateSortIndicators();
 refresh().catch((err) => showToast(err.message, 'error'));

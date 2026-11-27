@@ -29,17 +29,36 @@
         <strong class="stat-value" id="statTotal">0</strong>
       </article>
       <article class="stat-card stat-active">
-        <span class="stat-label">Faol</span>
+        <span class="stat-label">Faol xodimlar</span>
         <strong class="stat-value" id="statActive">0</strong>
       </article>
       <article class="stat-card stat-inactive">
         <span class="stat-label">Nofaol</span>
         <strong class="stat-value" id="statInactive">0</strong>
       </article>
-      <article class="stat-card stat-depts">
-        <span class="stat-label">Bo'limlar</span>
-        <strong class="stat-value" id="statDepts">0</strong>
+      <article class="stat-card stat-salary">
+        <span class="stat-label">Maosh fondi</span>
+        <strong class="stat-value stat-value-sm" id="statSalary">0</strong>
       </article>
+    </section>
+
+    <section class="insights">
+      <div class="panel chart-panel">
+        <div class="panel-head">
+          <h2>Bo'limlar taqsimoti</h2>
+        </div>
+        <div id="deptChart" class="chart"></div>
+      </div>
+      <div class="panel finance-panel">
+        <div class="panel-head">
+          <h2>Qisqa ma'lumot</h2>
+        </div>
+        <ul class="mini-stats">
+          <li><span>O'rtacha maosh</span><strong id="statAverage">—</strong></li>
+          <li><span>Bo'limlar soni</span><strong id="statDepts">0</strong></li>
+          <li><span>Eng yangi xodim</span><strong id="statNewest">—</strong></li>
+        </ul>
+      </div>
     </section>
 
     <section class="panel">
@@ -53,28 +72,20 @@
           <option value="active">Faol</option>
           <option value="inactive">Nofaol</option>
         </select>
-        <select id="sortBy" class="select" aria-label="Saralash">
-          <option value="id:asc">Standart</option>
-          <option value="firstName:asc">Ism (A-Z)</option>
-          <option value="firstName:desc">Ism (Z-A)</option>
-          <option value="salary:desc">Maosh (yuqori)</option>
-          <option value="salary:asc">Maosh (past)</option>
-          <option value="hireDate:desc">Yangi ishga kirgan</option>
-          <option value="hireDate:asc">Eski ishga kirgan</option>
-        </select>
+        <button id="exportBtn" class="btn btn-ghost" type="button">CSV yuklab olish</button>
       </div>
 
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
-              <th>Xodim</th>
-              <th>Lavozim</th>
-              <th>Bo'lim</th>
+              <th class="sortable" data-sort="firstName">Xodim</th>
+              <th class="sortable" data-sort="position">Lavozim</th>
+              <th class="sortable" data-sort="department">Bo'lim</th>
               <th>Aloqa</th>
-              <th>Maosh</th>
-              <th>Ishga kirgan</th>
-              <th>Holat</th>
+              <th class="sortable" data-sort="salary">Maosh</th>
+              <th class="sortable" data-sort="hireDate">Ishga kirgan</th>
+              <th class="sortable" data-sort="status">Holat</th>
               <th class="actions-col">Amallar</th>
             </tr>
           </thead>
@@ -163,6 +174,24 @@
           <button type="submit" class="btn btn-primary" id="saveBtn">Saqlash</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal" id="deleteModal" hidden>
+    <div class="modal-overlay" data-close-delete></div>
+    <div class="modal-box modal-sm" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+      <div class="modal-head">
+        <h2 id="deleteTitle">Xodimni o'chirish</h2>
+        <button type="button" class="icon-btn" data-close-delete aria-label="Yopish">&times;</button>
+      </div>
+      <div class="delete-body">
+        <p id="deleteText">Bu xodimni o'chirishni tasdiqlaysizmi?</p>
+        <p class="delete-hint">Bu amalni qaytarib bo'lmaydi.</p>
+      </div>
+      <div class="modal-foot delete-foot">
+        <button type="button" class="btn btn-ghost" data-close-delete>Bekor qilish</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">O'chirish</button>
+      </div>
     </div>
   </div>
 

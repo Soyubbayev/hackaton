@@ -143,6 +143,28 @@ function listEmployees(params) {
   return list;
 }
 
+function csvCell(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return '"' + text.replace(/"/g, '""') + '"';
+}
+
+function toCsv(list) {
+  const header = ['ID', 'Ism', 'Familiya', 'Email', 'Telefon', 'Lavozim', "Bo'lim", 'Maosh', 'Ishga kirgan sana', 'Holat'];
+  const rows = list.map((e) => [
+    e.id,
+    e.firstName,
+    e.lastName,
+    e.email,
+    e.phone,
+    e.position,
+    e.department,
+    e.salary,
+    e.hireDate,
+    e.status === 'active' ? 'Faol' : 'Nofaol',
+  ]);
+  return '\uFEFF' + [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
+}
+
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
@@ -192,8 +214,14 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/stats' && method === 'GET') {
       const departments = {};
+      let totalSalary = 0;
+      let newestHire = null;
       for (const e of employees) {
         departments[e.department] = (departments[e.department] || 0) + 1;
+        totalSalary += Number(e.salary) || 0;
+        if (e.hireDate && (!newestHire || e.hireDate > newestHire.hireDate)) {
+          newestHire = { firstName: e.firstName, lastName: e.lastName, hireDate: e.hireDate };
+        }
       }
       const total = employees.length;
       const active = employees.filter((e) => e.status === 'active').length;
@@ -201,7 +229,10 @@ const server = http.createServer(async (req, res) => {
         total,
         active,
         inactive: total - active,
+        totalSalary,
+        averageSalary: total ? Math.round(totalSalary / total) : 0,
         departments,
+        newestHire,
       });
     }
 
@@ -210,6 +241,16 @@ const server = http.createServer(async (req, res) => {
         a.localeCompare(b, 'uz')
       );
       return sendJson(res, 200, list);
+    }
+
+    if (pathname === '/api/employees/export' && method === 'GET') {
+      const csv = toCsv(listEmployees(url.searchParams));
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="xodimlar.csv"',
+      });
+      res.end(csv);
+      return;
     }
 
     const match = pathname.match(/^\/api\/employees\/(\d+)$/);
