@@ -2,44 +2,47 @@ const fs = require('fs');
 const path = require('path');
 
 let mode = 'json';
-let collection = null;
 let client = null;
-let filePath = '';
-let dataDir = '';
-let memory = [];
+let employeesCollection = null;
+let attendanceCollection = null;
+let employeesFile = '';
+let attendanceFile = '';
+let employeesMemory = [];
+let attendanceMemory = [];
 
-function ensureFile(seed) {
+function ensureFile(file, seed) {
   try {
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(seed || [], null, 2));
-    }
+    const dir = path.dirname(file);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify(seed || [], null, 2));
   } catch (err) {
     // Read-only filesystem (e.g. Vercel serverless) - keep data in memory
   }
 }
 
-function readFile() {
+function readFile(file) {
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     return [];
   }
 }
 
-function persist() {
+function writeFile(file, list) {
   try {
-    fs.writeFileSync(filePath, JSON.stringify(memory, null, 2));
+    fs.writeFileSync(file, JSON.stringify(list, null, 2));
   } catch (err) {
     // Read-only filesystem - keep data in memory only
   }
 }
 
 async function init(options) {
-  filePath = options.file;
-  dataDir = path.dirname(filePath);
-  ensureFile(options.seed || []);
+  employeesFile = options.file;
+  attendanceFile = options.attendanceFile || path.join(path.dirname(options.file), 'attendance.json');
+
+  ensureFile(employeesFile, []);
+  ensureFile(attendanceFile, []);
 
   if (options.uri) {
     try {
@@ -47,19 +50,31 @@ async function init(options) {
       client = new MongoClient(options.uri, { serverSelectionTimeoutMS: 5000 });
       await client.connect();
       const db = client.db(options.dbName || 'haketon');
-      collection = db.collection(options.collectionName || 'employees');
-      await collection.createIndex({ id: 1 }, { unique: true });
+      employeesCollection = db.collection(options.collectionName || 'employees');
+      attendanceCollection = db.collection(options.attendanceCollection || 'attendance');
 
-      const count = await collection.countDocuments();
+      try {
+        await employeesCollection.createIndex({ id: 1 }, { unique: true });
+      } catch (indexErr) {
+        /* ignore */
+      }
+      try {
+        await attendanceCollection.createIndex({ employeeId: 1, date: 1 }, { unique: true });
+      } catch (indexErr) {
+        /* ignore */
+      }
+
+      const count = await employeesCollection.countDocuments();
       if (count === 0) {
-        const seedData = readFile();
-        if (seedData.length) await collection.insertMany(seedData.map((e) => ({ ...e })));
+        const seed = readFile(employeesFile);
+        if (seed.length) await employeesCollection.insertMany(seed.map((e) => ({ ...e })));
       }
 
       mode = 'mongo';
-      return { mode, count: await collection.countDocuments() };
+      return { mode, count: await employeesCollection.countDocuments() };
     } catch (err) {
-      collection = null;
+      employeesCollection = null;
+      attendanceCollection = null;
       if (client) {
         try {
           await client.close();
@@ -72,49 +87,74 @@ async function init(options) {
   }
 
   mode = 'json';
-  memory = readFile();
-  return { mode, count: memory.length };
+  employeesMemory = readFile(employeesFile);
+  attendanceMemory = readFile(attendanceFile);
+  return { mode, count: employeesMemory.length };
 }
 
 async function loadAll() {
   if (mode === 'mongo') {
-    return collection.find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray();
+    return employeesCollection.find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray();
   }
-  return memory.slice();
+  return employeesMemory.slice();
 }
 
 async function insert(employee) {
   if (mode === 'mongo') {
-    await collection.insertOne({ ...employee });
+    await employeesCollection.insertOne({ ...employee });
     return;
   }
-  memory.push(employee);
-  persist();
+  employeesMemory.push(employee);
+  writeFile(employeesFile, employeesMemory);
 }
 
 async function update(id, employee) {
   if (mode === 'mongo') {
-    await collection.replaceOne({ id }, { ...employee });
+    await employeesCollection.replaceOne({ id }, { ...employee });
     return;
   }
-  const index = memory.findIndex((e) => e.id === id);
+  const index = employeesMemory.findIndex((e) => e.id === id);
   if (index !== -1) {
-    memory[index] = employee;
-    persist();
+    employeesMemory[index] = employee;
+    writeFile(employeesFile, employeesMemory);
   }
 }
 
 async function remove(id) {
   if (mode === 'mongo') {
-    await collection.deleteOne({ id });
+    await employeesCollection.deleteOne({ id });
     return;
   }
-  memory = memory.filter((e) => e.id !== id);
-  persist();
+  employeesMemory = employeesMemory.filter((e) => e.id !== id);
+  writeFile(employeesFile, employeesMemory);
+}
+
+async function loadAttendance(date) {
+  if (mode === 'mongo') {
+    return attendanceCollection.find({ date }, { projection: { _id: 0 } }).toArray();
+  }
+  return attendanceMemory.filter((record) => record.date === date);
+}
+
+async function saveAttendance(record) {
+  if (mode === 'mongo') {
+    await attendanceCollection.replaceOne(
+      { employeeId: record.employeeId, date: record.date },
+      { ...record },
+      { upsert: true }
+    );
+    return;
+  }
+  const index = attendanceMemory.findIndex(
+    (r) => r.employeeId === record.employeeId && r.date === record.date
+  );
+  if (index === -1) attendanceMemory.push(record);
+  else attendanceMemory[index] = record;
+  writeFile(attendanceFile, attendanceMemory);
 }
 
 function getMode() {
   return mode;
 }
 
-module.exports = { init, loadAll, insert, update, remove, getMode };
+module.exports = { init, loadAll, insert, update, remove, loadAttendance, saveAttendance, getMode };

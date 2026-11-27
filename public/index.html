@@ -72,6 +72,7 @@
           <option value="active">Faol</option>
           <option value="inactive">Nofaol</option>
         </select>
+        <input id="attendanceDate" class="select date-input" type="date" aria-label="Davomat sanasi" />
         <button id="exportBtn" class="btn btn-ghost" type="button">CSV yuklab olish</button>
       </div>
 
@@ -86,6 +87,7 @@
               <th class="sortable" data-sort="salary">Maosh</th>
               <th class="sortable" data-sort="hireDate">Ishga kirgan</th>
               <th class="sortable" data-sort="status">Holat</th>
+              <th>Davomat</th>
               <th class="actions-col">Amallar</th>
             </tr>
           </thead>
@@ -192,6 +194,27 @@
         <button type="button" class="btn btn-ghost" data-close-delete>Bekor qilish</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteBtn">O'chirish</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="absenceModal" hidden>
+    <div class="modal-overlay" data-close-absence></div>
+    <div class="modal-box modal-sm" role="dialog" aria-modal="true" aria-labelledby="absenceTitle">
+      <div class="modal-head">
+        <h2 id="absenceTitle">Kelmadi - sabab</h2>
+        <button type="button" class="icon-btn" data-close-absence aria-label="Yopish">&times;</button>
+      </div>
+      <form id="absenceForm" class="modal-form" novalidate>
+        <p class="absence-emp" id="absenceEmp"></p>
+        <label class="field">
+          <span>Sabab (ixtiyoriy)</span>
+          <input id="absenceReason" type="text" placeholder="masalan: kasallik, ta'til..." autocomplete="off" />
+        </label>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close-absence>Bekor qilish</button>
+          <button type="submit" class="btn btn-danger" id="absenceSave">Belgilash</button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -793,3 +793,65 @@ th.sorted-desc::after {
     flex: 1 1 100%;
   }
 }
+
+/* Attendance */
+.attendance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.att-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.att-btn.present:hover {
+  border-color: #86efac;
+  color: var(--green);
+}
+
+.att-btn.absent:hover {
+  border-color: #fca5a5;
+  color: var(--red);
+}
+
+.att-btn.present.active {
+  background: var(--green-bg);
+  border-color: #86efac;
+  color: var(--green);
+}
+
+.att-btn.absent.active {
+  background: var(--red-bg);
+  border-color: #fca5a5;
+  color: var(--red);
+}
+
+.att-reason {
+  font-size: 11px;
+  color: var(--red);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.absence-emp {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.date-input {
+  min-width: 150px;
+}

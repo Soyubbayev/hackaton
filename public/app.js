@@ -2,6 +2,7 @@ const els = {
   search: document.getElementById('search'),
   filterDepartment: document.getElementById('filterDepartment'),
   filterStatus: document.getElementById('filterStatus'),
+  attendanceDate: document.getElementById('attendanceDate'),
   exportBtn: document.getElementById('exportBtn'),
   tableBody: document.getElementById('tableBody'),
   empty: document.getElementById('empty'),
@@ -32,6 +33,11 @@ const els = {
   deleteModal: document.getElementById('deleteModal'),
   deleteText: document.getElementById('deleteText'),
   confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
+  absenceModal: document.getElementById('absenceModal'),
+  absenceForm: document.getElementById('absenceForm'),
+  absenceEmp: document.getElementById('absenceEmp'),
+  absenceReason: document.getElementById('absenceReason'),
+  absenceSave: document.getElementById('absenceSave'),
   toast: document.getElementById('toast'),
 };
 
@@ -64,6 +70,8 @@ const state = {
   sort: 'id',
   order: 'asc',
   deleteTarget: null,
+  absenceTarget: null,
+  attendance: {},
 };
 
 async function api(path, options = {}) {
@@ -90,6 +98,11 @@ async function api(path, options = {}) {
   }
 
   return data;
+}
+
+function todayStr() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
 function formatMoney(value) {
@@ -134,6 +147,41 @@ function debounce(fn, delay) {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), delay);
   };
+}
+
+function buildAttendanceCell(emp) {
+  const td = document.createElement('td');
+  const wrap = document.createElement('div');
+  wrap.className = 'attendance';
+
+  const record = state.attendance[emp.id];
+
+  const presentBtn = document.createElement('button');
+  presentBtn.type = 'button';
+  presentBtn.className = 'att-btn present' + (record && record.status === 'present' ? ' active' : '');
+  presentBtn.title = 'Keldi';
+  presentBtn.textContent = '\u2713';
+  presentBtn.addEventListener('click', () => markPresent(emp));
+
+  const absentBtn = document.createElement('button');
+  absentBtn.type = 'button';
+  absentBtn.className = 'att-btn absent' + (record && record.status === 'absent' ? ' active' : '');
+  absentBtn.title = 'Kelmadi';
+  absentBtn.textContent = '\u2715';
+  absentBtn.addEventListener('click', () => openAbsenceModal(emp));
+
+  wrap.append(presentBtn, absentBtn);
+
+  if (record && record.status === 'absent' && record.reason) {
+    const reason = document.createElement('span');
+    reason.className = 'att-reason';
+    reason.textContent = record.reason;
+    reason.title = record.reason;
+    wrap.append(reason);
+  }
+
+  td.append(wrap);
+  return td;
 }
 
 function renderTable(list) {
@@ -198,6 +246,8 @@ function renderTable(list) {
     statusTd.append(badge);
     tr.append(statusTd);
 
+    tr.append(buildAttendanceCell(emp));
+
     const actionsTd = document.createElement('td');
     actionsTd.className = 'actions-col';
     const actions = document.createElement('div');
@@ -237,6 +287,37 @@ function buildQuery() {
 async function loadEmployees() {
   const list = await api('/api/employees?' + buildQuery());
   renderTable(list);
+}
+
+async function loadAttendance() {
+  const date = els.attendanceDate.value || todayStr();
+  const data = await api('/api/attendance?date=' + encodeURIComponent(date));
+  const map = {};
+  for (const record of data.records) map[record.employeeId] = record;
+  state.attendance = map;
+}
+
+async function reloadAttendanceView() {
+  await loadAttendance();
+  await loadEmployees();
+}
+
+async function markPresent(emp) {
+  try {
+    await api('/api/attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        employeeId: emp.id,
+        date: els.attendanceDate.value || todayStr(),
+        status: 'present',
+        reason: '',
+      }),
+    });
+    showToast(emp.firstName + ' ' + emp.lastName + ' - keldi');
+    await reloadAttendanceView();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 function renderChart(departments) {
@@ -314,6 +395,7 @@ async function loadDepartments() {
 
 async function refresh() {
   await loadDepartments();
+  await loadAttendance();
   await Promise.all([loadStats(), loadEmployees()]);
 }
 
@@ -390,7 +472,7 @@ function openDeleteModal(emp) {
 function closeDeleteModal() {
   state.deleteTarget = null;
   els.deleteModal.hidden = true;
-  if (els.modal.hidden) document.body.style.overflow = '';
+  if (els.modal.hidden && els.absenceModal.hidden) document.body.style.overflow = '';
 }
 
 async function confirmDelete() {
@@ -407,6 +489,47 @@ async function confirmDelete() {
     showToast(err.message, 'error');
   } finally {
     els.confirmDeleteBtn.disabled = false;
+  }
+}
+
+function openAbsenceModal(emp) {
+  state.absenceTarget = emp;
+  els.absenceEmp.textContent = emp.firstName + ' ' + emp.lastName;
+  els.absenceReason.value = '';
+  els.absenceModal.hidden = false;
+  document.body.style.overflow = 'hidden';
+  els.absenceReason.focus();
+}
+
+function closeAbsenceModal() {
+  state.absenceTarget = null;
+  els.absenceModal.hidden = true;
+  if (els.modal.hidden && els.deleteModal.hidden) document.body.style.overflow = '';
+}
+
+async function submitAbsence(event) {
+  event.preventDefault();
+  const emp = state.absenceTarget;
+  if (!emp) return;
+
+  els.absenceSave.disabled = true;
+  try {
+    await api('/api/attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        employeeId: emp.id,
+        date: els.attendanceDate.value || todayStr(),
+        status: 'absent',
+        reason: els.absenceReason.value.trim(),
+      }),
+    });
+    closeAbsenceModal();
+    showToast(emp.firstName + ' ' + emp.lastName + ' - kelmadi');
+    await reloadAttendanceView();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    els.absenceSave.disabled = false;
   }
 }
 
@@ -450,11 +573,17 @@ els.deleteModal.querySelectorAll('[data-close-delete]').forEach((element) => {
   element.addEventListener('click', closeDeleteModal);
 });
 
+els.absenceModal.querySelectorAll('[data-close-absence]').forEach((element) => {
+  element.addEventListener('click', closeAbsenceModal);
+});
+
 els.confirmDeleteBtn.addEventListener('click', confirmDelete);
+els.absenceForm.addEventListener('submit', submitAbsence);
 
 els.search.addEventListener('input', debounce(loadEmployees, 250));
 els.filterDepartment.addEventListener('change', loadEmployees);
 els.filterStatus.addEventListener('change', loadEmployees);
+els.attendanceDate.addEventListener('change', reloadAttendanceView);
 
 els.exportBtn.addEventListener('click', () => {
   window.location.href = '/api/employees/export?' + buildQuery();
@@ -476,7 +605,8 @@ document.querySelectorAll('th.sortable').forEach((th) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-  if (!els.deleteModal.hidden) closeDeleteModal();
+  if (!els.absenceModal.hidden) closeAbsenceModal();
+  else if (!els.deleteModal.hidden) closeDeleteModal();
   else if (!els.modal.hidden) closeModal();
 });
 
@@ -509,5 +639,6 @@ els.form.addEventListener('submit', async (event) => {
   }
 });
 
+els.attendanceDate.value = todayStr();
 updateSortIndicators();
 refresh().catch((err) => showToast(err.message, 'error'));

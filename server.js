@@ -30,6 +30,7 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'employees.json');
+const ATTENDANCE_FILE = path.join(DATA_DIR, 'attendance.json');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STATUSES = ['active', 'inactive'];
@@ -49,6 +50,11 @@ const MIME = {
 let employees = [];
 let nextId = 1;
 
+function todayStr() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 async function loadData() {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -61,7 +67,9 @@ async function loadData() {
     uri: process.env.MONGODB_URI,
     dbName: process.env.MONGODB_DB || 'haketon',
     collectionName: process.env.MONGODB_COLLECTION || 'employees',
+    attendanceCollection: process.env.MONGODB_ATTENDANCE_COLLECTION || 'attendance',
     file: DATA_FILE,
+    attendanceFile: ATTENDANCE_FILE,
   });
 
   employees = await store.loadAll();
@@ -282,6 +290,43 @@ async function handleRequest(req, res) {
         a.localeCompare(b, 'uz')
       );
       return sendJson(res, 200, list);
+    }
+
+    if (pathname === '/api/attendance' && method === 'GET') {
+      const date = url.searchParams.get('date') || todayStr();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return sendJson(res, 400, { error: 'Sana formati noto`g`ri' });
+      }
+      const records = await store.loadAttendance(date);
+      return sendJson(res, 200, { date, records });
+    }
+
+    if (pathname === '/api/attendance' && method === 'POST') {
+      const body = await readBody(req);
+      const employeeId = Number(body.employeeId);
+      const date = String(body.date || todayStr());
+      const status = body.status;
+      const reason = String(body.reason ?? '').trim().slice(0, 200);
+
+      if (!employees.some((e) => e.id === employeeId)) {
+        return sendJson(res, 404, { error: 'Xodim topilmadi' });
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return sendJson(res, 400, { error: 'Sana formati noto`g`ri' });
+      }
+      if (!['present', 'absent'].includes(status)) {
+        return sendJson(res, 400, { error: 'Holat noto`g`ri' });
+      }
+
+      const record = {
+        employeeId,
+        date,
+        status,
+        reason: status === 'absent' ? reason : '',
+        updatedAt: new Date().toISOString(),
+      };
+      await store.saveAttendance(record);
+      return sendJson(res, 200, record);
     }
 
     if (pathname === '/api/employees/export' && method === 'GET') {
