@@ -542,53 +542,6 @@ main.container {
   background: #0f172a;
 }
 
-/* Responsive */
-@media (max-width: 860px) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 560px) {
-  .brand-text h1 {
-    font-size: 16px;
-  }
-
-  .brand-text p {
-    display: none;
-  }
-
-  .topbar-inner {
-    padding-top: 12px;
-    padding-bottom: 12px;
-  }
-
-  .container {
-    padding: 0 14px;
-  }
-
-  .stat-value {
-    font-size: 24px;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal {
-    padding: 16px 12px;
-  }
-
-  .toolbar {
-    padding: 12px;
-  }
-
-  .search,
-  .select {
-    flex: 1 1 100%;
-  }
-}
-
 /* Enhanced dashboard */
 .stat-salary {
   border-left-color: #7c3aed;
@@ -774,26 +727,6 @@ th.sorted-desc::after {
   background: #b91c1c;
 }
 
-@media (max-width: 860px) {
-  .insights {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 560px) {
-  .chart-row {
-    grid-template-columns: 84px 1fr 28px;
-  }
-
-  .stat-value-sm {
-    font-size: 18px;
-  }
-
-  #exportBtn {
-    flex: 1 1 100%;
-  }
-}
-
 /* Attendance */
 .attendance {
   display: flex;
@@ -949,9 +882,64 @@ th.sorted-desc::after {
   justify-content: flex-end;
 }
 
-@media (max-width: 560px) {
+/* Responsive breakpoints: 1200 / 1024 / 768 / 350 */
+@media (max-width: 1200px) {
+  .container {
+    padding: 0 24px;
+  }
+
+  .stats {
+    gap: 14px;
+  }
+
+  .stat-card {
+    padding: 16px 18px;
+  }
+
+  .table {
+    min-width: 860px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .insights {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-att {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .table {
+    min-width: 820px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  main.container {
+    padding-top: 18px;
+    padding-bottom: 36px;
+  }
+
   .topbar-inner {
     flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .brand {
+    flex: 1;
+  }
+
+  #addBtn {
+    order: 2;
   }
 
   .nav-tabs {
@@ -960,12 +948,60 @@ th.sorted-desc::after {
     justify-content: center;
   }
 
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
   .stats-att {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .stat-value {
+    font-size: 26px;
+  }
+
+  .toolbar {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .search {
+    flex: 1 1 100%;
+  }
+
+  .select {
+    flex: 1 1 160px;
+  }
+
+  #exportBtn {
+    flex: 1 1 200px;
+  }
+
+  .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal {
+    padding: 20px 12px;
+  }
+
+  .chart-row {
+    grid-template-columns: 90px 1fr 30px;
+  }
+
+  .att-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .att-header .date-input {
+    width: 100%;
   }
 
   .att-row {
     flex-wrap: wrap;
+    gap: 10px;
   }
 
   .att-person {
@@ -979,5 +1015,130 @@ th.sorted-desc::after {
   .att-row .attendance {
     order: 3;
     margin-left: auto;
+  }
+
+  .table {
+    min-width: 780px;
+  }
+}
+
+@media (max-width: 350px) {
+  .container {
+    padding: 0 10px;
+  }
+
+  main.container {
+    padding-top: 14px;
+    padding-bottom: 32px;
+  }
+
+  .brand-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .brand-text h1 {
+    font-size: 15px;
+  }
+
+  .brand-text p {
+    display: none;
+  }
+
+  #addBtn {
+    flex: 1 1 100%;
+  }
+
+  .nav-tab {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .btn {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .stats,
+  .stats-att {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px 16px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .stat-value-sm {
+    font-size: 17px;
+  }
+
+  .toolbar {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .search,
+  .select,
+  #exportBtn {
+    flex: 1 1 100%;
+  }
+
+  .chart {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .chart-row {
+    grid-template-columns: 72px 1fr 26px;
+    font-size: 12px;
+  }
+
+  .panel-head {
+    padding: 14px 16px;
+  }
+
+  .mini-stats {
+    padding: 6px 14px 12px;
+  }
+
+  .att-row {
+    padding: 10px 12px;
+  }
+
+  .att-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .att-reason {
+    max-width: 100px;
+  }
+
+  .modal {
+    padding: 12px 8px;
+  }
+
+  .modal-head {
+    padding: 14px 16px;
+  }
+
+  .modal-form {
+    padding: 16px 14px 18px;
+  }
+
+  .form-grid {
+    gap: 12px;
+  }
+
+  .table {
+    min-width: 720px;
   }
 }
